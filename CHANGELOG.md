@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- `chunk_by_recursive()` – standard RAG recursive separator chunking strategy that hierarchically splits by paragraphs (`\n\n`), lines (`\n`), spaces (` `), and characters (`""`) with configurable overlap
+- CLI support for `--strategy recursive` (and inclusion in `--strategy all`)
+- Unit tests covering recursive paragraph/line/word boundaries, overlap prefixes, edge cases, and custom separators
+
 ## [0.1.0] - 2024-10-24
 
 ### Added

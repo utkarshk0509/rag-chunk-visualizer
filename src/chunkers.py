@@ -75,3 +75,86 @@ def chunk_by_markdown(text: str, max_chars: int = 400) -> list[Chunk]:
         if buf:
             out.append(_chunk(len(out), buf))
     return out
+
+
+def _split_text_recursively(text: str, separators: list[str], chunk_size: int) -> list[str]:
+    if not text:
+        return []
+    if len(text) <= chunk_size:
+        return [text]
+
+    chosen_sep = None
+    remaining_seps = []
+    for idx, sep in enumerate(separators):
+        if sep == "" or sep in text:
+            chosen_sep = sep
+            remaining_seps = separators[idx + 1 :]
+            break
+
+    if chosen_sep is None or chosen_sep == "":
+        return [text[i : i + chunk_size] for i in range(0, len(text), chunk_size)]
+
+    parts = text.split(chosen_sep)
+    raw_pieces = []
+    for i, part in enumerate(parts):
+        if i < len(parts) - 1:
+            raw_pieces.append(part + chosen_sep)
+        elif part:
+            raw_pieces.append(part)
+
+    final_pieces = []
+    for piece in raw_pieces:
+        if len(piece) <= chunk_size:
+            final_pieces.append(piece)
+        else:
+            if remaining_seps:
+                final_pieces.extend(_split_text_recursively(piece, remaining_seps, chunk_size))
+            else:
+                final_pieces.extend([piece[i : i + chunk_size] for i in range(0, len(piece), chunk_size)])
+
+    return final_pieces
+
+
+def chunk_by_recursive(
+    text: str,
+    chunk_size: int = 300,
+    overlap: int = 50,
+    separators: list[str] | None = None,
+) -> list[Chunk]:
+    if not 0 <= overlap < chunk_size:
+        raise ValueError("overlap must be >= 0 and smaller than chunk_size")
+    if not text:
+        return []
+
+    if separators is None:
+        separators = ["\n\n", "\n", " ", ""]
+
+    pieces = _split_text_recursively(text, separators, chunk_size)
+    if not pieces:
+        return []
+
+    chunks: list[Chunk] = []
+    current_pieces: list[str] = []
+    current_len = 0
+    overlap_prefix = ""
+
+    for piece in pieces:
+        if current_pieces and (current_len + len(piece) > chunk_size):
+            chunk_text = "".join(current_pieces)
+            chunks.append(_chunk(len(chunks), chunk_text, overlap_prefix))
+
+            while current_pieces and (current_len > overlap or current_len + len(piece) > chunk_size):
+                popped = current_pieces.pop(0)
+                current_len -= len(popped)
+
+            overlap_prefix = "".join(current_pieces)
+
+        current_pieces.append(piece)
+        current_len += len(piece)
+
+    if current_pieces:
+        chunk_text = "".join(current_pieces)
+        chunks.append(_chunk(len(chunks), chunk_text, overlap_prefix))
+
+    return chunks
+

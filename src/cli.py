@@ -2,10 +2,15 @@ from pathlib import Path
 
 import typer
 
-from src.chunkers import chunk_by_characters, chunk_by_markdown, chunk_by_sentences
+from src.chunkers import (
+    chunk_by_characters,
+    chunk_by_markdown,
+    chunk_by_recursive,
+    chunk_by_sentences,
+)
 from src.visualizer import render_chunks, render_comparison_table
 
-STRATEGIES = ["character", "sentence", "markdown"]
+STRATEGIES = ["character", "sentence", "markdown", "recursive"]
 
 app = typer.Typer(add_completion=False)
 
@@ -15,7 +20,9 @@ def main(
     path: Path = typer.Option(
         ..., "--path", "-f", exists=True, dir_okay=False, readable=True, help="Input .md, .py or .txt file."
     ),
-    strategy: str = typer.Option("all", "--strategy", "-s", help="character, sentence, markdown or all."),
+    strategy: str = typer.Option(
+        "all", "--strategy", "-s", help="character, sentence, markdown, recursive or all."
+    ),
     size: int = typer.Option(300, "--size", min=1, help="Target max characters per chunk."),
     overlap: int = typer.Option(50, "--overlap", min=0, help="Character overlap for window chunking."),
     limit: int = typer.Option(5, "--limit", min=0, help="Max chunk panels to render per strategy."),
@@ -30,6 +37,7 @@ def main(
         "character": lambda: chunk_by_characters(text, chunk_size=size, overlap=overlap),
         "sentence": lambda: chunk_by_sentences(text, max_chars=size),
         "markdown": lambda: chunk_by_markdown(text, max_chars=size),
+        "recursive": lambda: chunk_by_recursive(text, chunk_size=size, overlap=overlap),
     }
     picked = STRATEGIES if strategy == "all" else [strategy]
     results = {name: runners[name]() for name in picked}

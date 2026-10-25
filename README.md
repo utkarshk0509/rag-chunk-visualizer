@@ -1,6 +1,6 @@
 # rag-chunk-visualizer
 
-A small CLI that splits a `.md`, `.py` or `.txt` file with three chunking strategies and shows exactly where each chunk starts, ends and overlaps.
+A small CLI that splits a `.md`, `.py` or `.txt` file with four chunking strategies and shows exactly where each chunk starts, ends and overlaps.
 
 Retrieval quality depends on what ends up inside each chunk: a split in the middle of a sentence, a function, or a section heading produces embeddings that match poorly and return half an answer. Looking at the boundaries and the overlap cost before you embed a corpus lets you pick a strategy and size on evidence instead of guessing, and avoids paying to re-embed everything later.
 
@@ -20,6 +20,8 @@ Tokens are counted with `tiktoken` using the `o200k_base` encoding.
 | `character` | Fixed-size sliding window of `--size` characters | Last `--overlap` characters of the previous chunk |
 | `sentence` | Groups sentences (split on `.`, `!`, `?`) up to `--size` characters | Last sentence of the previous chunk |
 | `markdown` | Splits on Markdown headers or top-level `def` / `class` lines, then on blank lines if a block is longer than `--size` | None |
+| `recursive` | Splits hierarchically by paragraph (`\n\n`), line (`\n`), word (` `), and characters up to `--size` | Carried over from the previous chunk up to `--overlap` characters |
+
 
 ## Setup
 
@@ -83,17 +85,23 @@ chunk-viz --help
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--path`, `-f` | required | Input file |
-| `--strategy`, `-s` | `all` | `character`, `sentence`, `markdown` or `all` |
+| `--strategy`, `-s` | `all` | `character`, `sentence`, `markdown`, `recursive` or `all` |
 | `--size` | `300` | Target max characters per chunk (used by all strategies) |
-| `--overlap` | `50` | Character overlap for the `character` strategy, must be smaller than `--size` |
+| `--overlap` | `50` | Character overlap for `character` and `recursive` strategies, must be smaller than `--size` |
 | `--limit` | `5` | Max chunk panels printed per strategy (`0` prints only the table) |
 
 ### Examples
 
-Compare all three strategies on a file:
+Compare all four strategies on a file:
 
 ```bash
 chunk-viz -f docs/guide.md
+```
+
+Look at the recursive strategy with custom chunk size:
+
+```bash
+chunk-viz -f notes.txt -s recursive --size 500 --overlap 100
 ```
 
 Look at one strategy with larger chunks and show more panels:
@@ -128,7 +136,7 @@ Each strategy prints a header line with its chunk count, followed by up to `--li
 - **Panel subtitle:** shows the chunk's token count, character count and overlap length.
 - **Comparison table:** comes last. If Total Tokens is much higher than the source file's token count (shown in the caption), you are paying to embed a lot of duplicated text. If Min/Max Tokens is very uneven, some chunks may be too small to be useful or too large for your embedding model.
 
-A practical loop: run with `--strategy all`, pick the strategy with sensible boundaries, then adjust `--size` (and `--overlap` for `character`) until the overhead and token range look right for your embedding model.
+A practical loop: run with `--strategy all`, pick the strategy with sensible boundaries, then adjust `--size` (and `--overlap` for `character` and `recursive`) until the overhead and token range look right for your embedding model.
 
 ## Pipeline
 
@@ -138,9 +146,11 @@ flowchart LR
     B --> C1[chunk_by_characters]
     B --> C2[chunk_by_sentences]
     B --> C3[chunk_by_markdown]
+    B --> C4[chunk_by_recursive]
     C1 --> D[Chunk list + token counts]
     C2 --> D
     C3 --> D
+    C4 --> D
     D --> E[render_chunks: panels with highlighted overlap]
     D --> F[render_comparison_table]
 ```

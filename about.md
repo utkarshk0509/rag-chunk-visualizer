@@ -24,7 +24,7 @@ Re-embedding a corpus because the chunking was wrong is slow and costs money. Th
 
 ### Strategies
 
-All three are plain Python with `re`. LangChain and similar libraries are not used.
+All strategies are plain Python without external RAG orchestration frameworks.
 
 **character** (`chunk_by_characters`)
 A sliding window of `chunk_size` characters that moves forward `chunk_size - overlap` characters each step. Each chunk after the first starts with the last `overlap` characters of the previous chunk, and that carried-over text is stored in `overlap_prefix`. It is simple and predictable, but ignores words, sentences and structure.
@@ -34,6 +34,9 @@ Splits the text into sentences with `(?<=[.!?])\s+`, then adds sentences to a ch
 
 **markdown** (`chunk_by_markdown`)
 Splits before every Markdown header (`#` to `######`) and every top-level `def ` or `class ` line, so it works for both `.md` and `.py` files. A block longer than `max_chars` is split again at blank lines (`\n\n`), and the paragraphs are grouped back together up to `max_chars`. There is no overlap. Known limits: a line inside a fenced code block that looks like a heading or a `def` is also a split point, and a single paragraph longer than `max_chars` stays whole.
+
+**recursive** (`chunk_by_recursive`)
+The industry standard RAG splitting pattern. Attempts to split hierarchically along semantic boundaries in order of priority: paragraphs (`\n\n`), single lines (`\n`), whitespace words (` `), and characters (`""`). Each chunk respects `chunk_size` and carries over trailing context up to `overlap` characters while preserving semantic units wherever possible.
 
 ### Data model
 
@@ -69,9 +72,11 @@ flowchart LR
     B --> C1[chunk_by_characters]
     B --> C2[chunk_by_sentences]
     B --> C3[chunk_by_markdown]
+    B --> C4[chunk_by_recursive]
     C1 --> D[list of Chunk]
     C2 --> D
     C3 --> D
+    C4 --> D
     D --> E[render_chunks]
     D --> F[render_comparison_table]
 ```
